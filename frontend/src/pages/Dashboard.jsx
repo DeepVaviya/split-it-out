@@ -1,70 +1,78 @@
 import { useState, useEffect } from 'react';
-import { getMyGroups, createGroup } from '../services/api';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { login, register, checkHealth } from '../services/api';
 
-export default function Dashboard() {
-  const [groups, setGroups] = useState([]);
-  const [newGroupName, setNewGroupName] = useState('');
-  const [membersStr, setMembersStr] = useState(''); // "Rahul, Aman"
+export default function Login() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    getMyGroups().then(res => setGroups(res.data)).catch(() => navigate('/'));
-  }, []);
+    if (localStorage.getItem('token') || localStorage.getItem('isGuest')) {
+      navigate('/dashboard');
+    }
+  }, [navigate]);
 
-  const handleCreate = async (e) => {
+  const handleGuestLogin = () => {
+    localStorage.setItem('user', JSON.stringify({ name: 'Guest User', id: 'guest', isGuest: true }));
+    localStorage.setItem('isGuest', 'true');
+    navigate('/dashboard');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const members = membersStr.split(',').map(s => s.trim()).filter(Boolean);
-    if(members.length < 1) return alert("Add at least 1 member");
-    
-    await createGroup({ name: newGroupName, members, currency: '₹' });
-    setNewGroupName(''); setMembersStr('');
-    
-    // Refresh list
-    const res = await getMyGroups();
-    setGroups(res.data);
+    setError('');
+    setLoading(true);
+    try {
+      if (isLogin) {
+        const res = await login({ email: formData.email, password: formData.password });
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        navigate('/dashboard');
+      } else {
+        await register(formData);
+        setIsLogin(true);
+        setError('Account created! Please log in.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">My Groups</h1>
-        <button onClick={() => { localStorage.clear(); navigate('/'); }} className="text-red-500 text-sm">Logout</button>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md">
+        <h1 className="text-3xl font-bold mb-2 text-center text-blue-600 dark:text-blue-400">split-it-out</h1>
+        
+        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
 
-      {/* Create Box */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border mb-8">
-        <h2 className="font-semibold mb-4">Start a new group</h2>
-        <form onSubmit={handleCreate} className="space-y-3">
-          <input 
-            placeholder="Group Name (e.g. Goa Trip)" 
-            className="w-full p-3 border rounded-lg"
-            value={newGroupName}
-            onChange={e => setNewGroupName(e.target.value)}
-            required
-          />
-          <input 
-            placeholder="Members (comma separated: Rahul, Priya)" 
-            className="w-full p-3 border rounded-lg"
-            value={membersStr}
-            onChange={e => setMembersStr(e.target.value)}
-            required
-          />
-          <button className="w-full bg-black text-white py-3 rounded-lg font-medium">Create Group</button>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <input type="text" placeholder="Name" className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+          )}
+          <input type="email" placeholder="Email" className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+          <input type="password" placeholder="Password" className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
+
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700">
+            {isLogin ? 'Log In' : 'Sign Up'}
+          </button>
         </form>
-      </div>
 
-      {/* List */}
-      <div className="grid gap-4">
-        {groups.map(g => (
-          <Link to={`/group/${g._id}`} key={g._id} className="block bg-white p-5 rounded-xl border hover:border-blue-500 transition shadow-sm">
-            <div className="flex justify-between">
-              <span className="font-bold text-lg">{g.name}</span>
-              <span className="bg-gray-100 text-xs px-2 py-1 rounded">{g.currency}</span>
-            </div>
-            <div className="text-gray-500 text-sm mt-1">{g.members.length} members</div>
-          </Link>
-        ))}
+        <div className="mt-4 flex flex-col gap-2">
+            <button onClick={handleGuestLogin} className="w-full bg-gray-200 dark:bg-gray-700 dark:text-white py-3 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                Continue as Guest
+            </button>
+            <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 dark:text-blue-400 text-sm hover:underline text-center">
+                {isLogin ? 'Need an account? Sign Up' : 'Have an account? Log In'}
+            </button>
+        </div>
       </div>
     </div>
   );
