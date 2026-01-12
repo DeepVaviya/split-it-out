@@ -4,8 +4,10 @@ const settlementService = require('../services/settlementService');
 
 exports.createGroup = async (req, res) => {
   try {
-    const {KF} = req.body;
+    const {KF} = req.body; // REMOVE THIS LINE
     const { name, members, currency } = req.body;
+    
+    // Ensure members is an array of objects for the schema
     const memberObjects = members.map(m => ({ name: m }));
     
     const group = new Group({
@@ -43,13 +45,11 @@ exports.getMyGroups = async (req, res) => {
     }
 };
 
-// New Delete Function
 exports.deleteGroup = async (req, res) => {
   try {
     const group = await Group.findOneAndDelete({ _id: req.params.id, creator_id: req.user.id });
     if (!group) return res.status(404).json({ message: 'Group not found or unauthorized' });
     
-    // Delete associated expenses
     await Expense.deleteMany({ group_id: req.params.id });
     
     res.json({ message: 'Group deleted' });
