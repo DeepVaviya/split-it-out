@@ -65,19 +65,20 @@ exports.register = async (req, res) => {
       name: err.name,
       stack: err.stack
     });
-    
+
     // Handle MongoDB duplicate key error
     if (err.code === 11000) {
       return res.status(400).json({ message: 'An account with this email already exists' });
     }
-    
+
     // Handle validation errors
     if (err.name === 'ValidationError') {
       const messages = Object.values(err.errors).map(e => e.message);
       return res.status(400).json({ message: messages.join(', ') });
     }
-    
-    res.status(500).json({ message: 'Server error: ' + err.message });
+
+    // Return detailed error for easier debugging in development
+    res.status(500).json({ message: 'Server error: ' + err.message, error: err.stack });
   }
 };
 
@@ -102,10 +103,20 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    // Sanity logs for debugging
+    console.log('🔍 User found for login:', { id: user._id.toString(), email: user.email });
+    console.log('🔐 Checking password hash presence:', { hasPassword: !!user.password, hashLength: user.password ? user.password.length : 0 });
+
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Ensure JWT secret available
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ Missing JWT_SECRET environment variable');
+      return res.status(500).json({ message: 'Server configuration error: JWT secret missing' });
     }
 
     // Create Token
@@ -128,6 +139,7 @@ exports.login = async (req, res) => {
       name: err.name,
       stack: err.stack
     });
-    res.status(500).json({ message: 'Server error: ' + err.message });
+    // Return detailed error stack in response to aid debugging during development
+    res.status(500).json({ message: 'Server error: ' + err.message, error: err.stack });
   }
 };

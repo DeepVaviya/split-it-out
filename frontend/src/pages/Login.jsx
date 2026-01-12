@@ -95,12 +95,19 @@ export default function Login() {
         setTimeout(() => setIsLogin(true), 1500);
       }
     } catch (err) {
-      console.error('Auth error:', err);
-      
+      console.error('Auth error', {
+        message: err.message,
+        code: err.code,
+        responseData: err.response?.data,
+        status: err.response?.status,
+        stack: err.stack
+      });
+
       // Handle different error scenarios
       if (!err.response) {
         setError('Unable to connect to server. Please check if the backend is running on port 5000.');
       } else {
+        // Prefer server-provided message, fall back to axios message
         setError(err.response?.data?.message || err.message || 'Something went wrong');
       }
     } finally {
