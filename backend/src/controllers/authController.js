@@ -9,9 +9,7 @@ const isValidEmail = (email) => {
 };
 
 exports.register = async (req, res) => {
-  try {
-    console.log('📝 Register attempt:', { email: req.body.email, name: req.body.name });
-    
+  try {    
     const { name, email, password } = req.body;
     
     // Validation
@@ -52,7 +50,7 @@ exports.register = async (req, res) => {
       { expiresIn: '7d' }
     );
     
-    console.log('✅ User registered:', user.email);
+    
     res.status(201).json({ 
       message: 'Account created successfully',
       token, 
@@ -83,9 +81,7 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  try {
-    console.log('🔐 Login attempt:', { email: req.body.email });
-    
+  try { 
     const { email, password } = req.body;
     
     // Validation
@@ -102,10 +98,6 @@ exports.login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
-
-    // Sanity logs for debugging
-    console.log('🔍 User found for login:', { id: user._id.toString(), email: user.email });
-    console.log('🔐 Checking password hash presence:', { hasPassword: !!user.password, hashLength: user.password ? user.password.length : 0 });
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -126,7 +118,6 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
     
-    console.log('✅ User logged in:', user.email);
     res.json({ 
       message: 'Login successful',
       token, 

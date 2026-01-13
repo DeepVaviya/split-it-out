@@ -2,7 +2,7 @@ const Expense = require('../models/Expense');
 
 exports.addExpense = async (req, res) => {
   try {
-    const { groupId, title, amount, payments } = req.body;
+    const { groupId, title, amount, payments, date } = req.body; // Added date
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
     
     if (Math.abs(totalPaid - amount) > 0.1) {
@@ -13,6 +13,7 @@ exports.addExpense = async (req, res) => {
       group_id: groupId,
       title,
       amount,
+      date: date || Date.now(), // Use provided date or default to now
       paid_by: payments
     });
 

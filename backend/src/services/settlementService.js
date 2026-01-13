@@ -11,8 +11,8 @@ exports.calculateSettlements = async (groupId) => {
   group.members.forEach(m => balances[m._id.toString()] = 0);
 
   expenses.forEach(expense => {
-    // Skip settled expenses if you want (logic not strictly added here but good practice)
-    // if (expense.isSettled) return; 
+    // Skip settled expenses (Uncommented to enable "Mark as Paid" logic)
+    if (expense.isSettled) return; 
 
     const splitAmount = expense.amount / group.members.length;
     
