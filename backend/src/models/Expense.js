@@ -5,7 +5,7 @@ const ExpenseSchema = new mongoose.Schema({
   title: { type: String, required: true },
   amount: { type: Number, required: true },
   date: { type: Date, default: Date.now },
-  isSettled: { type: Boolean, default: false }, // New field
+  isSettled: { type: Boolean, default: false },
   paid_by: [{
     member_id: { type: mongoose.Schema.Types.ObjectId, required: true },
     amount: { type: Number, required: true }

@@ -151,7 +151,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getGroup, addExpense, deleteExpense, updateExpenseStatus } from '../services/api';
+import { getGroup, addExpense, deleteExpense, updateExpenseStatus, getExpenses } from '../services/api';
 import { useGuest } from '../context/GuestContext';
 import { Plus, Wallet, Receipt, Users, ArrowLeft, Trash2, CheckCircle, XCircle } from 'lucide-react';
 
@@ -180,11 +180,8 @@ export default function GroupDetail() {
         setData({ group: groupRes.data.group, expenses: expensesRes.data, settlements: groupRes.data.settlements });
       } else {
         const res = await getGroup(id);
-        // api getGroup returns { group, settlements }, we need to fetch expenses separately or if API includes them
-        // Based on backend code: getGroup returns { group, settlements }. getExpenses returns list.
-        // We'll fetch expenses separately to be sure, or rely on a modified API structure.
-        // Let's assume we need to fetch expenses for the list.
-        const expensesRes = await import('../services/api').then(m => m.getExpenses(id));
+        // Backend now returns { group, settlements }, we fetch expenses separately
+        const expensesRes = await getExpenses(id);
         setData({ ...res.data, expenses: expensesRes.data });
       }
     } catch (err) {

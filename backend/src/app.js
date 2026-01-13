@@ -15,19 +15,17 @@ const app = express();
 // Middleware
 app.use(cors({ 
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:5174',
       'http://127.0.0.1:5173',
-      'http://127.0.0.1:5174',
       process.env.CLIENT_URL
     ].filter(Boolean);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(null, true); // Allow all for development
+    return callback(null, true); // Allow all for dev convenience
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -35,13 +33,13 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Request logging middleware
+// Request logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -54,27 +52,13 @@ mongoose.connect(process.env.MONGO_URI)
     process.exit(1);
   });
 
-// Handle MongoDB connection events
-mongoose.connection.on('error', err => {
-  console.error('MongoDB error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected');
-});
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/debug', debugRoutes);
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
-
-// Global error handler
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error('Server Error:', err);
   res.status(500).json({ message: 'Internal server error', error: err.message });

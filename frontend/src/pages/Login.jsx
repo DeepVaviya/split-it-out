@@ -291,8 +291,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md">
+    // FIX: Changed bg-gray-100 to bg-gray-50 to match App theme
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md border border-gray-100 dark:border-gray-700">
         <h1 className="text-3xl font-bold mb-2 text-center text-blue-600 dark:text-blue-400">split-it-out</h1>
         
         {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4">{error}</div>}
@@ -307,13 +308,13 @@ export default function Login() {
           <input type="password" placeholder="Password" className="w-full p-3 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
 
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700">
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 transition">
             {isLogin ? 'Log In' : 'Sign Up'}
           </button>
         </form>
 
         <div className="mt-4 flex flex-col gap-2">
-            <button onClick={handleGuestLogin} className="w-full bg-gray-200 dark:bg-gray-700 dark:text-white py-3 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+            <button onClick={handleGuestLogin} className="w-full bg-gray-100 dark:bg-gray-700 dark:text-gray-300 py-3 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                 Continue as Guest
             </button>
             <button onClick={() => setIsLogin(!isLogin)} className="text-blue-600 dark:text-blue-400 text-sm hover:underline text-center">

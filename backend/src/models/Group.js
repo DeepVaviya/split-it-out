@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const MemberSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  // We don't force user_id here to keep it flexible (Just names)
 });
 
 const GroupSchema = new mongoose.Schema({

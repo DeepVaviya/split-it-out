@@ -6,7 +6,8 @@ import GroupDetail from './pages/GroupDetail';
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
+      {/* FIX: Removed 'bg-gray-50 text-gray-900' so index.css can control the theme */}
+      <div className="min-h-screen font-sans">
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />

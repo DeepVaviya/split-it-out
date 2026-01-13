@@ -4,7 +4,6 @@ const settlementService = require('../services/settlementService');
 
 exports.createGroup = async (req, res) => {
   try {
-    const {KF} = req.body; // REMOVE THIS LINE
     const { name, members, currency } = req.body;
     
     // Ensure members is an array of objects for the schema

@@ -3,5 +3,6 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 dark:bg-gray-900 transition-colors duration-200;
+  /* FIX: Added text color (text-gray-900) and dark mode text (dark:text-gray-100) */
+  @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200;
 }

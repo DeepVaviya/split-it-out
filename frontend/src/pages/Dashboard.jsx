@@ -7,7 +7,8 @@ import { LogOut, Plus, Trash2, Moon, Sun, Users } from 'lucide-react';
 
 export default function Dashboard() {
   const [groups, setGroups] = useState([]);
-  const [loading,SF] = useState(true);
+  // FIX: Corrected variable name from 'SF' to 'setLoading'
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupMembers, setNewGroupMembers] = useState('');
@@ -27,6 +28,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Failed to load groups", err);
     } finally {
+      // This caused the error because setLoading was named SF before
       setLoading(false);
     }
   };
@@ -45,8 +47,8 @@ export default function Dashboard() {
     if (!newGroupName.trim()) return;
 
     const membersArray = newGroupMembers.split(',').map(m => m.trim()).filter(m => m);
-    // Add current user to members if not guest (backend logic handles creator, but visual consistency helps)
-    if (!isGuest && !membersArray.includes(user.name)) {
+    // Add current user to members if not guest
+    if (!isGuest && user.name && !membersArray.includes(user.name)) {
         membersArray.push(user.name);
     }
 
@@ -93,7 +95,7 @@ export default function Dashboard() {
       <nav className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400">split-it-out</h1>
         <div className="flex items-center gap-4">
-          <span className="text-gray-600 dark:text-gray-300 hidden sm:block">Hi, {user.name}</span>
+          <span className="text-gray-600 dark:text-gray-300 hidden sm:block">Hi, {user.name || 'Guest'}</span>
           <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>

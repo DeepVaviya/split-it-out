@@ -11,6 +11,9 @@ exports.calculateSettlements = async (groupId) => {
   group.members.forEach(m => balances[m._id.toString()] = 0);
 
   expenses.forEach(expense => {
+    // Skip settled expenses if you want (logic not strictly added here but good practice)
+    // if (expense.isSettled) return; 
+
     const splitAmount = expense.amount / group.members.length;
     
     // 1. Deduct split amount from everyone (Everyone owes the pot)
@@ -26,7 +29,6 @@ exports.calculateSettlements = async (groupId) => {
     });
   });
 
-  // Separation
   let debtors = [];
   let creditors = [];
 
@@ -36,21 +38,18 @@ exports.calculateSettlements = async (groupId) => {
     if (rounded > 0.01) creditors.push({ memberId, amount: rounded });
   }
 
-  // Greedy Matching
   let settlements = [];
   let i = 0, j = 0;
 
-  debtors.sort((a, b) => a.amount - b.amount); // Ascending (most negative first)
-  creditors.sort((a, b) => b.amount - a.amount); // Descending (most positive first)
+  debtors.sort((a, b) => a.amount - b.amount);
+  creditors.sort((a, b) => b.amount - a.amount);
 
   while (i < debtors.length && j < creditors.length) {
     let debtor = debtors[i];
     let creditor = creditors[j];
 
-    // Debtor owes X, Creditor needs Y. Transaction is min(|X|, Y)
     let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
     
-    // Find member names
     const fromMember = group.members.find(m => m._id.toString() === debtor.memberId);
     const toMember = group.members.find(m => m._id.toString() === creditor.memberId);
 
