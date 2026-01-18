@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, register } from '../services/api';
 import { useToast } from '../context/ToastContext'; // Import Toast
-import { User, Lock, Mail, ArrowRight } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext'; // Import Theme
+import { User, Lock, Mail, ArrowRight, Moon, Sun } from 'lucide-react';
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { darkMode, toggleTheme } = useTheme();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,6 +41,13 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
+      <button 
+        onClick={toggleTheme}
+        className="fixed top-4 right-4 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition border border-gray-200 dark:border-gray-700"
+        title="Toggle theme"
+      >
+        {darkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
+      </button>
       <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-700">
         <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">Split It Out</h1>

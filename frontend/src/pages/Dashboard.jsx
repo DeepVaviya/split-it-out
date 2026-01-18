@@ -4,12 +4,14 @@ import { createGroup, getGroups, deleteGroup } from '../services/api';
 import { useGuest } from '../context/GuestContext';
 import { useToast } from '../context/ToastContext'; // Import Toast
 import { useConfirm } from '../context/ConfirmContext'; // Import Confirm
-import { Plus, Users, Trash2, LogIn, UserPlus } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext'; // Import Theme
+import { Plus, Users, Trash2, LogIn, UserPlus, Moon, Sun } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const { darkMode, toggleTheme } = useTheme();
   
   const [groups, setGroups] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -101,6 +103,13 @@ export default function Dashboard() {
           <p className="text-gray-500 dark:text-gray-400">Manage your shared expenses</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={toggleTheme}
+            className="p-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+            title="Toggle theme"
+          >
+            {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-700" />}
+          </button>
           {!isGuest && (
              <button onClick={() => {
                  localStorage.removeItem('token');
