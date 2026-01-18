@@ -6,12 +6,31 @@ exports.createGroup = async (req, res) => {
   try {
     const { name, members, currency } = req.body;
     
+    // Validate required fields
+    if (!name || !members || members.length === 0) {
+      return res.status(400).json({ message: 'Group name and at least one member are required' });
+    }
+
+    if (members.length < 2) {
+      return res.status(400).json({ message: 'A group must have at least 2 members' });
+    }
+
+    // Check if group with same name already exists for this user
+    const existingGroup = await Group.findOne({ 
+      name: name.trim(), 
+      creator_id: req.user.id 
+    });
+    
+    if (existingGroup) {
+      return res.status(400).json({ message: 'You already have a group with this name. Please use a different name.' });
+    }
+
     // Ensure members is an array of objects for the schema
     const memberObjects = members.map(m => ({ name: m }));
     
     const group = new Group({
-      name,
-      currency,
+      name: name.trim(),
+      currency: currency || '₹',
       members: memberObjects,
       creator_id: req.user.id
     });
@@ -19,7 +38,20 @@ exports.createGroup = async (req, res) => {
     await group.save();
     res.status(201).json(group);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Create Group Error:', err);
+    
+    // Handle validation errors
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ message: messages.join(', ') });
+    }
+
+    // Return generic error in production, detailed in development
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ error: err.message, details: err.stack });
+    } else {
+      res.status(500).json({ message: 'Failed to create group' });
+    }
   }
 };
 

@@ -9,72 +9,73 @@ export function GuestProvider({ children }) {
 
   // --- Helper: Settlement Algorithm ---
   const calculateGuestSettlements = (group, expenses) => {
+    // Use cents throughout to avoid floating point errors
     let balances = {};
     group.members.forEach(m => balances[m._id] = 0);
 
     expenses.forEach(expense => {
-      // REMOVED: if (expense.isSettled) return;
-
       const memberCount = group.members.length;
       const totalAmountCents = Math.round(expense.amount * 100);
       const splitAmountCents = Math.floor(totalAmountCents / memberCount);
       let remainderCents = totalAmountCents % memberCount;
 
-      group.members.forEach(m => {
+      // Deduct split amount from everyone (in cents)
+      group.members.forEach((m, index) => {
         let share = splitAmountCents;
-        if (remainderCents > 0) {
+        // Distribute remainder to first members
+        if (index < remainderCents) {
           share += 1;
-          remainderCents--;
         }
-        balances[m._id] -= (share / 100);
+        balances[m._id] -= share;
       });
 
+      // Add paid amount to payers (in cents)
       expense.paid_by.forEach(p => {
         if (balances[p.member_id] !== undefined) {
-          balances[p.member_id] += p.amount;
+          balances[p.member_id] += Math.round(p.amount * 100);
         }
       });
     });
 
+    // Categorize debtors and creditors
     let debtors = [];
     let creditors = [];
 
-    for (const [memberId, amount] of Object.entries(balances)) {
-      const rounded = Math.round(amount * 100) / 100;
-      if (rounded < -0.01) debtors.push({ memberId, amount: rounded });
-      if (rounded > 0.01) creditors.push({ memberId, amount: rounded });
+    for (const [memberId, amountCents] of Object.entries(balances)) {
+      if (amountCents < -1) {
+        debtors.push({ memberId, amountCents });
+      }
+      if (amountCents > 1) {
+        creditors.push({ memberId, amountCents });
+      }
     }
 
     let settlements = [];
-    debtors.sort((a, b) => a.amount - b.amount);
-    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => a.amountCents - b.amountCents);
+    creditors.sort((a, b) => b.amountCents - a.amountCents);
 
     let i = 0, j = 0;
     while (i < debtors.length && j < creditors.length) {
       let debtor = debtors[i];
       let creditor = creditors[j];
-      let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
-      amount = Math.round(amount * 100) / 100;
+      const settlementCents = Math.min(Math.abs(debtor.amountCents), creditor.amountCents);
 
       const fromMember = group.members.find(m => m._id === debtor.memberId);
       const toMember = group.members.find(m => m._id === creditor.memberId);
 
-      if (fromMember && toMember && amount > 0) {
+      if (fromMember && toMember && settlementCents > 0) {
         settlements.push({
           from: fromMember.name,
           to: toMember.name,
-          amount: amount.toFixed(2)
+          amount: (settlementCents / 100).toFixed(2)
         });
       }
 
-      debtor.amount += amount;
-      creditor.amount -= amount;
-      
-      debtor.amount = Math.round(debtor.amount * 100) / 100;
-      creditor.amount = Math.round(creditor.amount * 100) / 100;
+      debtor.amountCents += settlementCents;
+      creditor.amountCents -= settlementCents;
 
-      if (Math.abs(debtor.amount) < 0.01) i++;
-      if (creditor.amount < 0.01) j++;
+      if (Math.abs(debtor.amountCents) <= 1) i++;
+      if (creditor.amountCents <= 1) j++;
     }
     return settlements;
   };

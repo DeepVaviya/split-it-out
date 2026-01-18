@@ -7,77 +7,83 @@ exports.calculateSettlements = async (groupId) => {
   
   const expenses = await Expense.find({ group_id: groupId });
 
+  // Use cents throughout to avoid floating point errors
   let balances = {}; 
   group.members.forEach(m => balances[m._id.toString()] = 0);
 
   expenses.forEach(expense => {
-    // REMOVED: if (expense.isSettled) return; 
-    // All expenses count towards the balance history.
-
     const memberCount = group.members.length;
     const totalAmountCents = Math.round(expense.amount * 100);
     const splitAmountCents = Math.floor(totalAmountCents / memberCount);
     let remainderCents = totalAmountCents % memberCount;
 
-    // 1. Deduct split amount from everyone
-    group.members.forEach(m => {
+    // 1. Deduct split amount from everyone (in cents)
+    group.members.forEach((m, index) => {
       let share = splitAmountCents;
-      if (remainderCents > 0) {
+      // Distribute remainder to first members to ensure total equals expense
+      if (index < remainderCents) {
         share += 1;
-        remainderCents--;
       }
-      balances[m._id.toString()] -= (share / 100);
+      balances[m._id.toString()] -= share;
     });
 
-    // 2. Add paid amount to payers
+    // 2. Add paid amount to payers (in cents)
     expense.paid_by.forEach(p => {
-      if(balances[p.member_id.toString()] !== undefined) {
-          balances[p.member_id.toString()] += p.amount;
+      const memberId = p.member_id.toString();
+      if(balances[memberId] !== undefined) {
+          balances[memberId] += Math.round(p.amount * 100);
       }
     });
   });
 
+  // Convert balances from cents to dollars and categorize
   let debtors = [];
   let creditors = [];
 
-  for (const [memberId, amount] of Object.entries(balances)) {
-    const rounded = Math.round(amount * 100) / 100;
-    if (rounded < -0.01) debtors.push({ memberId, amount: rounded });
-    if (rounded > 0.01) creditors.push({ memberId, amount: rounded });
+  for (const [memberId, amountCents] of Object.entries(balances)) {
+    // Only convert to dollars at the end
+    if (amountCents < -1) { // Less than -1 cent (owes money)
+      debtors.push({ memberId, amountCents });
+    }
+    if (amountCents > 1) { // More than 1 cent (is owed money)
+      creditors.push({ memberId, amountCents });
+    }
   }
 
   let settlements = [];
   let i = 0, j = 0;
 
-  debtors.sort((a, b) => a.amount - b.amount);
-  creditors.sort((a, b) => b.amount - a.amount);
+  // Sort by absolute amount (smallest debts first helps minimize transactions)
+  debtors.sort((a, b) => a.amountCents - b.amountCents);
+  creditors.sort((a, b) => b.amountCents - a.amountCents);
 
   while (i < debtors.length && j < creditors.length) {
     let debtor = debtors[i];
     let creditor = creditors[j];
 
-    let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
-    amount = Math.round(amount * 100) / 100;
+    // Calculate settlement amount in cents
+    const settlementCents = Math.min(Math.abs(debtor.amountCents), creditor.amountCents);
 
     const fromMember = group.members.find(m => m._id.toString() === debtor.memberId);
     const toMember = group.members.find(m => m._id.toString() === creditor.memberId);
 
-    if (fromMember && toMember && amount > 0) {
+    if (fromMember && toMember && settlementCents > 0) {
+        // Convert cents to dollars for display
+        const settlementAmount = (settlementCents / 100).toFixed(2);
         settlements.push({
-        from: fromMember.name,
-        to: toMember.name,
-        amount: amount.toFixed(2)
+          from: fromMember.name,
+          to: toMember.name,
+          amount: settlementAmount
         });
     }
 
-    debtor.amount += amount;
-    creditor.amount -= amount;
-    
-    debtor.amount = Math.round(debtor.amount * 100) / 100;
-    creditor.amount = Math.round(creditor.amount * 100) / 100;
+    // Update balances in cents
+    debtor.amountCents += settlementCents;
+    creditor.amountCents -= settlementCents;
 
-    if (Math.abs(debtor.amount) < 0.01) i++;
-    if (creditor.amount < 0.01) j++;
+    // Move to next debtor/creditor if settled
+    if (Math.abs(debtor.amountCents) <= 1) i++;
+    if (creditor.amountCents <= 1) j++;
   }
 
   return settlements;

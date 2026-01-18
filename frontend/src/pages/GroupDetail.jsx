@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getGroup, addExpense, deleteExpense, getExpenses } from '../services/api';
 import { useGuest } from '../context/GuestContext';
-import { Plus, Wallet, Receipt, Users, ArrowLeft, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext'; // Import Toast
+import { useConfirm } from '../context/ConfirmContext'; // Import Confirm
+import { Plus, Wallet, Receipt, Users, ArrowLeft, Trash2 } from 'lucide-react';
 
 export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
+
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState('expenses');
   const [showModal, setShowModal] = useState(false);
@@ -16,7 +21,7 @@ export default function GroupDetail() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [payerId, setPayerId] = useState('');
-  const [date, setDate] = useState(''); // Added date state
+  const [date, setDate] = useState('');
 
   // Guest Logic
   const isGuest = localStorage.getItem('isGuest') === 'true';
@@ -30,12 +35,12 @@ export default function GroupDetail() {
         setData({ group: groupRes.data.group, expenses: expensesRes.data, settlements: groupRes.data.settlements });
       } else {
         const res = await getGroup(id);
-        // Backend now returns { group, settlements }, we fetch expenses separately
         const expensesRes = await getExpenses(id);
         setData({ ...res.data, expenses: expensesRes.data });
       }
     } catch (err) {
       console.error(err);
+      addToast("Failed to load group data", "error");
     } finally {
       setLoading(false);
     }
@@ -45,13 +50,15 @@ export default function GroupDetail() {
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    if (!payerId) return alert("Select who paid!");
+    if (!payerId) return addToast("Please select who paid!", "error");
+    if (!title.trim()) return addToast("Please enter expense title!", "error");
+    if (!amount || parseFloat(amount) <= 0) return addToast("Please enter a valid amount!", "error");
     
     const payload = {
       groupId: id,
       title,
       amount: parseFloat(amount),
-      date: date || new Date().toISOString(), // Pass date
+      date: date || new Date().toISOString(),
       payments: [{ member_id: payerId, amount: parseFloat(amount) }]
     };
 
@@ -60,18 +67,34 @@ export default function GroupDetail() {
         else await addExpense(payload);
         
         setShowModal(false);
-        setTitle(''); setAmount(''); setDate(''); // Reset date
+        setTitle(''); setAmount(''); setPayerId(''); setDate('');
         refreshData();
+        addToast("Expense added successfully!");
     } catch (err) {
-        alert("Error adding expense");
+        const errorMessage = err.response?.data?.message || err.message || "Error adding expense";
+        addToast(errorMessage, "error");
+        console.error("Add expense error:", err);
     }
   };
 
   const handleDeleteExpense = async (expenseId) => {
-      if(!confirm("Delete this expense?")) return;
-      if(isGuest) await deleteGuestExpense(expenseId);
-      else await deleteExpense(expenseId);
-      refreshData();
+      // Replaced window.confirm
+      const isConfirmed = await confirm({
+          title: "Delete Expense?",
+          message: "Are you sure you want to remove this expense record?"
+      });
+      
+      if (!isConfirmed) return;
+
+      try {
+        if(isGuest) await deleteGuestExpense(expenseId);
+        else await deleteExpense(expenseId);
+        
+        refreshData();
+        addToast("Expense deleted"); // Added toast
+      } catch (err) {
+        addToast("Failed to delete expense", "error");
+      }
   };
 
   if (loading) return <div className="p-10 text-center dark:text-white">Loading...</div>;
@@ -129,11 +152,11 @@ export default function GroupDetail() {
               data.expenses.map(expense => (
                   <div key={expense._id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center group">
                       <div className="flex items-center gap-4">
-                          <div className={`p-3 rounded-full ${expense.isSettled ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                          <div className={`p-3 rounded-full bg-orange-100 text-orange-600`}>
                               <Receipt size={20} />
                           </div>
                           <div>
-                              <h4 className={`font-bold text-gray-800 dark:text-gray-200 ${expense.isSettled ? 'line-through opacity-50' : ''}`}>{expense.title}</h4>
+                              <h4 className="font-bold text-gray-800 dark:text-gray-200">{expense.title}</h4>
                               <p className="text-xs text-gray-500">
                                   Paid by <span className="font-medium">{data.group.members.find(m => m._id === expense.paid_by[0].member_id)?.name || 'Unknown'}</span>
                               </p>
@@ -182,7 +205,7 @@ export default function GroupDetail() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">Add Expense</h2>
             <form onSubmit={handleAddExpense} className="space-y-4">

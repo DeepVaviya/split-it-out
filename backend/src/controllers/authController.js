@@ -75,8 +75,12 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: messages.join(', ') });
     }
 
-    // Return detailed error for easier debugging in development
-    res.status(500).json({ message: 'Server error: ' + err.message, error: err.stack });
+    // Return generic error in production, detailed in development
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ message: 'Server error: ' + err.message, error: err.stack });
+    } else {
+      res.status(500).json({ message: 'An error occurred. Please try again later.' });
+    }
   }
 };
 

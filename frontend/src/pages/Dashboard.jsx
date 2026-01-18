@@ -1,203 +1,230 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { getMyGroups, createGroup, deleteGroup } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { createGroup, getGroups, deleteGroup } from '../services/api';
 import { useGuest } from '../context/GuestContext';
-import { useTheme } from '../context/ThemeContext';
-import { LogOut, Plus, Trash2, Moon, Sun, Users } from 'lucide-react';
+import { useToast } from '../context/ToastContext'; // Import Toast
+import { useConfirm } from '../context/ConfirmContext'; // Import Confirm
+import { Plus, Users, Trash2, LogIn, UserPlus } from 'lucide-react';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { addToast } = useToast();
+  const confirm = useConfirm();
+  
   const [groups, setGroups] = useState([]);
-  // FIX: Corrected variable name from 'SF' to 'setLoading'
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupMembers, setNewGroupMembers] = useState('');
-  
-  const navigate = useNavigate();
-  const { darkMode, toggleTheme } = useTheme();
-  
-  // Guest Context
-  const isGuest = localStorage.getItem('isGuest') === 'true';
-  const { getGuestGroups, createGuestGroup, deleteGuestGroup } = useGuest();
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const [currency, setCurrency] = useState('₹');
+  const [members, setMembers] = useState(['', '']);
 
-  const fetchGroups = async () => {
-    try {
-      const res = isGuest ? await getGuestGroups() : await getMyGroups();
-      setGroups(res.data);
-    } catch (err) {
-      console.error("Failed to load groups", err);
-    } finally {
-      // This caused the error because setLoading was named SF before
-      setLoading(false);
-    }
-  };
+  // Guest Logic
+  const isGuest = localStorage.getItem('isGuest') === 'true';
+  const { createGuestGroup, getGuestGroups, deleteGuestGroup } = useGuest();
 
   useEffect(() => {
-    fetchGroups();
+    loadGroups();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
+  const loadGroups = async () => {
+    try {
+      const res = isGuest ? await getGuestGroups() : await getGroups();
+      setGroups(res.data);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleCreateGroup = async (e) => {
     e.preventDefault();
-    if (!newGroupName.trim()) return;
-
-    const membersArray = newGroupMembers.split(',').map(m => m.trim()).filter(m => m);
-    // Add current user to members if not guest
-    if (!isGuest && user.name && !membersArray.includes(user.name)) {
-        membersArray.push(user.name);
+    const validMembers = members.filter(m => m.trim() !== '');
+    if (validMembers.length < 2) {
+      return addToast("Add at least 2 members!", "error");
     }
 
-    const payload = {
-      name: newGroupName,
-      members: membersArray.length > 0 ? membersArray : ['Member 1', 'Member 2'],
-      currency: '₹'
-    };
+    if (!newGroupName.trim()) {
+      return addToast("Please enter a group name!", "error");
+    }
 
     try {
-      if (isGuest) {
-        await createGuestGroup(payload);
-      } else {
-        await createGroup(payload);
-      }
+      const payload = { name: newGroupName, currency, members: validMembers };
+      if (isGuest) await createGuestGroup(payload);
+      else await createGroup(payload);
+      
       setShowModal(false);
       setNewGroupName('');
-      setNewGroupMembers('');
-      fetchGroups();
+      setMembers(['', '']);
+      loadGroups();
+      addToast("Group created successfully!");
     } catch (err) {
-      alert("Failed to create group");
+      const errorMessage = err.response?.data?.message || err.message || "Error creating group";
+      addToast(errorMessage, "error");
+      console.error("Create group error:", err);
     }
   };
 
-  const handleDelete = async (e, id) => {
-    e.preventDefault(); // Prevent navigation
-    if (!window.confirm("Are you sure you want to delete this group?")) return;
+  const handleDeleteGroup = async (e, groupId) => {
+    e.stopPropagation(); // Prevent clicking the card
+    
+    // Replaced window.confirm
+    const isConfirmed = await confirm({
+      title: "Delete Group?",
+      message: "This will permanently remove the group and all its expenses."
+    });
+
+    if (!isConfirmed) return;
 
     try {
-      if (isGuest) {
-        await deleteGuestGroup(id);
-      } else {
-        await deleteGroup(id);
-      }
-      fetchGroups();
+      if (isGuest) await deleteGuestGroup(groupId);
+      else await deleteGroup(groupId);
+      
+      loadGroups();
+      addToast("Group deleted successfully!"); // Added success toast
     } catch (err) {
-      console.error("Delete failed", err);
+      addToast("Failed to delete group", "error");
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      {/* Navbar */}
-      <nav className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-        <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400">split-it-out</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-gray-600 dark:text-gray-300 hidden sm:block">Hi, {user.name || 'Guest'}</span>
-          <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-          <button onClick={handleLogout} className="flex items-center gap-2 text-red-500 hover:text-red-700 font-medium">
-            <LogOut size={20} /> <span className="hidden sm:inline">Logout</span>
-          </button>
-        </div>
-      </nav>
+  const handleMemberChange = (index, value) => {
+    const updated = [...members];
+    updated[index] = value;
+    setMembers(updated);
+  };
 
-      {/* Content */}
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 dark:text-white">Your Groups</h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">Manage expenses with your friends</p>
-          </div>
+  const addMemberField = () => setMembers([...members, '']);
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto min-h-screen">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400">Manage your shared expenses</p>
+        </div>
+        <div className="flex gap-3">
+          {!isGuest && (
+             <button onClick={() => {
+                 localStorage.removeItem('token');
+                 navigate('/');
+                 addToast("Logged out successfully");
+             }} className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg font-medium transition">
+               Logout
+             </button>
+          )}
           <button 
             onClick={() => setShowModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg transition transform hover:scale-105"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 transition transform hover:scale-105"
           >
-            <Plus size={20} /> Create Group
+            <Plus size={20} /> New Group
           </button>
         </div>
+      </div>
 
-        {loading ? (
-          <div className="text-center py-20 text-gray-500">Loading groups...</div>
-        ) : groups.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-dashed border-gray-300 dark:border-gray-700">
-            <Users size={48} className="mx-auto text-gray-300 mb-4" />
-            <h3 className="text-xl font-medium text-gray-800 dark:text-white">No groups yet</h3>
-            <p className="text-gray-500 mb-6">Create a group to start splitting expenses!</p>
-            <button onClick={() => setShowModal(true)} className="text-blue-600 hover:underline">Create your first group</button>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {groups.map(group => (
-              <Link to={`/group/${group._id}`} key={group._id} className="block group relative">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm hover:shadow-md border border-gray-100 dark:border-gray-700 transition h-full">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2 group-hover:text-blue-600 transition-colors">
-                      {group.name}
-                    </h3>
-                    <button 
-                      onClick={(e) => handleDelete(e, group._id)}
-                      className="text-gray-400 hover:text-red-500 transition p-1"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                  <div className="text-gray-500 dark:text-gray-400 text-sm mt-4 flex items-center gap-2">
-                    <Users size={16} />
-                    {group.members?.length || 0} Members
-                  </div>
-                  <div className="mt-4 text-xs text-gray-400">
-                    Created {new Date(group.created_at).toLocaleDateString()}
-                  </div>
+      {/* Groups Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {groups.map(group => (
+          <div 
+            key={group._id}
+            onClick={() => navigate(`/group/${group._id}`)}
+            className="group bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-blue-500 dark:hover:border-blue-500 transition cursor-pointer relative overflow-hidden"
+          >
+            <div className="flex justify-between items-start gap-4">
+                <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{group.name}</h3>
+                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+                        <Users size={16} />
+                        <span>{group.members.length} members</span>
+                    </div>
                 </div>
-              </Link>
-            ))}
+                <div className="flex items-center gap-3">
+                    <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
+                        {group.currency}
+                    </span>
+                    {/* Delete Button */}
+                    <button 
+                        onClick={(e) => handleDeleteGroup(e, group._id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition flex-shrink-0"
+                        title="Delete Group"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                </div>
+            </div>
           </div>
+        ))}
+        
+        {groups.length === 0 && (
+            <div className="col-span-full text-center py-20 text-gray-400">
+                <div className="mb-4 flex justify-center"><Users size={48} className="opacity-20" /></div>
+                <p>No groups yet. Create one to get started!</p>
+            </div>
         )}
       </div>
 
       {/* Create Group Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-8 shadow-2xl transform transition-all">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Create New Group</h2>
-            <form onSubmit={handleCreateGroup} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Name</label>
-                <input 
-                  type="text" 
-                  value={newGroupName}
-                  onChange={e => setNewGroupName(e.target.value)}
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="e.g. Goa Trip 2024"
-                  required
-                />
+            <form onSubmit={handleCreateGroup}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Name</label>
+                  <input 
+                    required
+                    value={newGroupName} 
+                    onChange={e => setNewGroupName(e.target.value)} 
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition"
+                    placeholder="e.g. Goa Trip 🌴" 
+                  />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                    <select 
+                        value={currency} 
+                        onChange={e => setCurrency(e.target.value)}
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white"
+                    >
+                        <option value="₹">₹ INR</option>
+                        <option value="$">$ USD</option>
+                        <option value="€">€ EUR</option>
+                    </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Members</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                    {members.map((m, i) => (
+                      <input 
+                        key={i} 
+                        value={m} 
+                        onChange={e => handleMemberChange(i, e.target.value)} 
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white text-sm"
+                        placeholder={`Member ${i + 1} Name`} 
+                      />
+                    ))}
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={addMemberField}
+                    className="mt-3 text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
+                  >
+                    <UserPlus size={16} /> Add another member
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Members (comma separated)</label>
-                <input 
-                  type="text" 
-                  value={newGroupMembers}
-                  onChange={e => setNewGroupMembers(e.target.value)}
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="John, Alice, Bob"
-                />
-                <p className="text-xs text-gray-500 mt-1">You are automatically added to the group.</p>
-              </div>
-              <div className="flex gap-3 pt-4">
+
+              <div className="flex gap-3 mt-8">
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                  className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="flex-1yb py-3 text-white bg-blue-600 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg"
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition"
                 >
                   Create Group
                 </button>
