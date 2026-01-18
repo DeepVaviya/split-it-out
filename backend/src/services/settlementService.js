@@ -11,17 +11,25 @@ exports.calculateSettlements = async (groupId) => {
   group.members.forEach(m => balances[m._id.toString()] = 0);
 
   expenses.forEach(expense => {
-    // Skip settled expenses (Uncommented to enable "Mark as Paid" logic)
-    if (expense.isSettled) return; 
+    // REMOVED: if (expense.isSettled) return; 
+    // All expenses count towards the balance history.
 
-    const splitAmount = expense.amount / group.members.length;
-    
-    // 1. Deduct split amount from everyone (Everyone owes the pot)
+    const memberCount = group.members.length;
+    const totalAmountCents = Math.round(expense.amount * 100);
+    const splitAmountCents = Math.floor(totalAmountCents / memberCount);
+    let remainderCents = totalAmountCents % memberCount;
+
+    // 1. Deduct split amount from everyone
     group.members.forEach(m => {
-      balances[m._id.toString()] -= splitAmount;
+      let share = splitAmountCents;
+      if (remainderCents > 0) {
+        share += 1;
+        remainderCents--;
+      }
+      balances[m._id.toString()] -= (share / 100);
     });
 
-    // 2. Add paid amount to payers (Payers claim from the pot)
+    // 2. Add paid amount to payers
     expense.paid_by.forEach(p => {
       if(balances[p.member_id.toString()] !== undefined) {
           balances[p.member_id.toString()] += p.amount;
@@ -49,11 +57,12 @@ exports.calculateSettlements = async (groupId) => {
     let creditor = creditors[j];
 
     let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
-    
+    amount = Math.round(amount * 100) / 100;
+
     const fromMember = group.members.find(m => m._id.toString() === debtor.memberId);
     const toMember = group.members.find(m => m._id.toString() === creditor.memberId);
 
-    if (fromMember && toMember) {
+    if (fromMember && toMember && amount > 0) {
         settlements.push({
         from: fromMember.name,
         to: toMember.name,
@@ -63,6 +72,9 @@ exports.calculateSettlements = async (groupId) => {
 
     debtor.amount += amount;
     creditor.amount -= amount;
+    
+    debtor.amount = Math.round(debtor.amount * 100) / 100;
+    creditor.amount = Math.round(creditor.amount * 100) / 100;
 
     if (Math.abs(debtor.amount) < 0.01) i++;
     if (creditor.amount < 0.01) j++;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getGroup, addExpense, deleteExpense, updateExpenseStatus, getExpenses } from '../services/api';
+import { getGroup, addExpense, deleteExpense, getExpenses } from '../services/api';
 import { useGuest } from '../context/GuestContext';
 import { Plus, Wallet, Receipt, Users, ArrowLeft, Trash2, CheckCircle, XCircle } from 'lucide-react';
 
@@ -20,7 +20,7 @@ export default function GroupDetail() {
 
   // Guest Logic
   const isGuest = localStorage.getItem('isGuest') === 'true';
-  const { getGuestGroup, addGuestExpense, getGuestExpenses, deleteGuestExpense, toggleGuestExpense } = useGuest();
+  const { getGuestGroup, addGuestExpense, getGuestExpenses, deleteGuestExpense } = useGuest();
 
   const refreshData = async () => {
     try {
@@ -71,12 +71,6 @@ export default function GroupDetail() {
       if(!confirm("Delete this expense?")) return;
       if(isGuest) await deleteGuestExpense(expenseId);
       else await deleteExpense(expenseId);
-      refreshData();
-  };
-
-  const handleToggleStatus = async (expenseId, currentStatus) => {
-      if(isGuest) await toggleGuestExpense(expenseId, !currentStatus);
-      else await updateExpenseStatus(expenseId, !currentStatus);
       refreshData();
   };
 
@@ -151,9 +145,6 @@ export default function GroupDetail() {
                               <div className="text-xs text-gray-400">{new Date(expense.date).toLocaleDateString()}</div>
                           </div>
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                            <button onClick={() => handleToggleStatus(expense._id, expense.isSettled)} title="Toggle Settled" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500">
-                                {expense.isSettled ? <XCircle size={18} /> : <CheckCircle size={18} />}
-                            </button>
                             <button onClick={() => handleDeleteExpense(expense._id)} title="Delete" className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full text-red-500">
                                 <Trash2 size={18} />
                             </button>
