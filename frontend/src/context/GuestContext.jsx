@@ -141,6 +141,7 @@ export function GuestProvider({ children }) {
 
   return (
     <GuestContext.Provider value={{
+      guestGroups, // Expose state directly for reactive updates
       createGuestGroup, getGuestGroups, getGuestGroup, deleteGuestGroup,
       addGuestExpense, getGuestExpenses, deleteGuestExpense
     }}>

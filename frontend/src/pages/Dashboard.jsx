@@ -12,7 +12,7 @@ export default function Dashboard() {
   const { addToast } = useToast();
   const confirm = useConfirm();
   const { darkMode, toggleTheme } = useTheme();
-  
+
   const [groups, setGroups] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -21,11 +21,21 @@ export default function Dashboard() {
 
   // Guest Logic
   const isGuest = localStorage.getItem('isGuest') === 'true';
-  const { createGuestGroup, getGuestGroups, deleteGuestGroup } = useGuest();
+  const { guestGroups, createGuestGroup, getGuestGroups, deleteGuestGroup } = useGuest();
 
+  // Sync guest groups reactively from context
   useEffect(() => {
-    loadGroups();
-  }, []);
+    if (isGuest) {
+      setGroups(guestGroups);
+    }
+  }, [isGuest, guestGroups]);
+
+  // Load groups for logged-in users on mount
+  useEffect(() => {
+    if (!isGuest) {
+      loadGroups();
+    }
+  }, [isGuest]);
 
   const loadGroups = async () => {
     try {
@@ -49,13 +59,17 @@ export default function Dashboard() {
 
     try {
       const payload = { name: newGroupName, currency, members: validMembers };
-      if (isGuest) await createGuestGroup(payload);
-      else await createGroup(payload);
-      
+      if (isGuest) {
+        await createGuestGroup(payload);
+        // Guest groups sync automatically via useEffect
+      } else {
+        await createGroup(payload);
+        loadGroups(); // Only need to reload for API-backed groups
+      }
+
       setShowModal(false);
       setNewGroupName('');
       setMembers(['', '']);
-      loadGroups();
       addToast("Group created successfully!");
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || "Error creating group";
@@ -66,7 +80,7 @@ export default function Dashboard() {
 
   const handleDeleteGroup = async (e, groupId) => {
     e.stopPropagation(); // Prevent clicking the card
-    
+
     // Replaced window.confirm
     const isConfirmed = await confirm({
       title: "Delete Group?",
@@ -76,11 +90,14 @@ export default function Dashboard() {
     if (!isConfirmed) return;
 
     try {
-      if (isGuest) await deleteGuestGroup(groupId);
-      else await deleteGroup(groupId);
-      
-      loadGroups();
-      addToast("Group deleted successfully!"); // Added success toast
+      if (isGuest) {
+        await deleteGuestGroup(groupId);
+        // Guest groups sync automatically via useEffect
+      } else {
+        await deleteGroup(groupId);
+        loadGroups(); // Only need to reload for API-backed groups
+      }
+      addToast("Group deleted successfully!");
     } catch (err) {
       addToast("Failed to delete group", "error");
     }
@@ -103,7 +120,7 @@ export default function Dashboard() {
           <p className="text-gray-500 dark:text-gray-400">Manage your shared expenses</p>
         </div>
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={toggleTheme}
             className="p-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
             title="Toggle theme"
@@ -111,15 +128,15 @@ export default function Dashboard() {
             {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-700" />}
           </button>
           {!isGuest && (
-             <button onClick={() => {
-                 localStorage.removeItem('token');
-                 navigate('/');
-                 addToast("Logged out successfully");
-             }} className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg font-medium transition">
-               Logout
-             </button>
+            <button onClick={() => {
+              localStorage.removeItem('token');
+              navigate('/');
+              addToast("Logged out successfully");
+            }} className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg font-medium transition">
+              Logout
+            </button>
           )}
-          <button 
+          <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 transition transform hover:scale-105"
           >
@@ -131,41 +148,41 @@ export default function Dashboard() {
       {/* Groups Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {groups.map(group => (
-          <div 
+          <div
             key={group._id}
             onClick={() => navigate(`/group/${group._id}`)}
             className="group bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-blue-500 dark:hover:border-blue-500 transition cursor-pointer relative overflow-hidden"
           >
             <div className="flex justify-between items-start gap-4">
-                <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{group.name}</h3>
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
-                        <Users size={16} />
-                        <span>{group.members.length} members</span>
-                    </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{group.name}</h3>
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+                  <Users size={16} />
+                  <span>{group.members.length} members</span>
                 </div>
-                <div className="flex items-center gap-3">
-                    <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
-                        {group.currency}
-                    </span>
-                    {/* Delete Button */}
-                    <button 
-                        onClick={(e) => handleDeleteGroup(e, group._id)}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition flex-shrink-0"
-                        title="Delete Group"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap">
+                  {group.currency}
+                </span>
+                {/* Delete Button */}
+                <button
+                  onClick={(e) => handleDeleteGroup(e, group._id)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition flex-shrink-0"
+                  title="Delete Group"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
-        
+
         {groups.length === 0 && (
-            <div className="col-span-full text-center py-20 text-gray-400">
-                <div className="mb-4 flex justify-center"><Users size={48} className="opacity-20" /></div>
-                <p>No groups yet. Create one to get started!</p>
-            </div>
+          <div className="col-span-full text-center py-20 text-gray-400">
+            <div className="mb-4 flex justify-center"><Users size={48} className="opacity-20" /></div>
+            <p>No groups yet. Create one to get started!</p>
+          </div>
         )}
       </div>
 
@@ -178,43 +195,43 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Name</label>
-                  <input 
+                  <input
                     required
-                    value={newGroupName} 
-                    onChange={e => setNewGroupName(e.target.value)} 
+                    value={newGroupName}
+                    onChange={e => setNewGroupName(e.target.value)}
                     className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none dark:text-white transition"
-                    placeholder="e.g. Goa Trip 🌴" 
+                    placeholder="e.g. Goa Trip 🌴"
                   />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
-                    <select 
-                        value={currency} 
-                        onChange={e => setCurrency(e.target.value)}
-                        className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white"
-                    >
-                        <option value="₹">₹ INR</option>
-                        <option value="$">$ USD</option>
-                        <option value="€">€ EUR</option>
-                    </select>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                  <select
+                    value={currency}
+                    onChange={e => setCurrency(e.target.value)}
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white"
+                  >
+                    <option value="₹">₹ INR</option>
+                    <option value="$">$ USD</option>
+                    <option value="€">€ EUR</option>
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Members</label>
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                     {members.map((m, i) => (
-                      <input 
-                        key={i} 
-                        value={m} 
-                        onChange={e => handleMemberChange(i, e.target.value)} 
+                      <input
+                        key={i}
+                        value={m}
+                        onChange={e => handleMemberChange(i, e.target.value)}
                         className="w-full p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl outline-none dark:text-white text-sm"
-                        placeholder={`Member ${i + 1} Name`} 
+                        placeholder={`Member ${i + 1} Name`}
                       />
                     ))}
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={addMemberField}
                     className="mt-3 text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline flex items-center gap-1"
                   >
@@ -224,15 +241,15 @@ export default function Dashboard() {
               </div>
 
               <div className="flex gap-3 mt-8">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition"
                 >
                   Create Group
